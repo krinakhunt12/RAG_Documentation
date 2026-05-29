@@ -1,450 +1,848 @@
-# What is RAG (Retrieval-Augmented Generation)?
+# 🤖 RAG — Retrieval-Augmented Generation
 
-## Introduction
-
-**RAG (Retrieval-Augmented Generation)** is a technique that helps AI answer questions using information from your own documents.
-
-Instead of relying only on what the AI learned during training, RAG allows the AI to:
-
-1. Search relevant information from documents.
-2. Use that information to generate accurate answers.
+> **Complete Technical Documentation** | Version 1.0 | May 2026
 
 ---
 
-# Simple Real-Life Example
+## 📑 Table of Contents
 
-Imagine you upload a PDF containing:
-
-```text
-Company Leave Policy
-
-Employees are entitled to 20 paid leave days per year.
-Unused leave cannot be carried forward.
-```
-
-Then a user asks:
-
-```text
-How many paid leave days does an employee get?
-```
-
-Without RAG:
-
-```text
-The AI may guess or provide a generic answer.
-```
-
-With RAG:
-
-```text
-The system searches the document,
-finds the relevant sentence,
-and answers:
-
-"Employees are entitled to 20 paid leave days per year."
-```
+1. [What is RAG?](#what-is-rag)
+2. [Why RAG Exists](#why-rag-exists)
+3. [Real-Life Analogy](#real-life-analogy)
+4. [Real-Life Example](#real-life-example)
+5. [How RAG Works — Step by Step](#how-rag-works--step-by-step)
+   - [Step 1: Upload Documents](#step-1-upload-documents)
+   - [Step 2: Text Extraction](#step-2-text-extraction)
+   - [Step 3: Chunking](#step-3-chunking)
+   - [Step 4: Create Embeddings](#step-4-create-embeddings)
+   - [Step 5: Store in Vector Database](#step-5-store-in-vector-database)
+   - [Step 6: User Asks a Question](#step-6-user-asks-a-question)
+   - [Step 7: Convert Question to Embedding](#step-7-convert-question-to-embedding)
+   - [Step 8: Similarity Search](#step-8-similarity-search)
+   - [Step 9: Send Context to LLM](#step-9-send-context-to-llm)
+   - [Step 10: Generate Final Answer](#step-10-generate-final-answer)
+6. [Complete Architecture Diagram](#complete-architecture-diagram)
+7. [Tiny End-to-End Example](#tiny-end-to-end-example)
+8. [RAG vs No RAG](#rag-vs-no-rag)
+9. [Popular RAG Stack](#popular-rag-stack)
+10. [Chunking Strategies](#chunking-strategies)
+11. [Embedding Models](#embedding-models)
+12. [Vector Databases Compared](#vector-databases-compared)
+13. [Advanced RAG Techniques](#advanced-rag-techniques)
+14. [Summary](#summary)
 
 ---
 
-# How RAG Works
+## 🔍 What is RAG?
 
-## Step 1: Upload Documents
+**RAG (Retrieval-Augmented Generation)** is an AI architecture pattern that enhances a Large Language Model (LLM) by giving it the ability to **search and retrieve** relevant information from your own documents before generating an answer.
 
-```text
-PDF
-DOCX
-TXT
-CSV
+> In simple terms: RAG teaches an AI to **look things up** before it **speaks**.
+
+A standard LLM only knows what it learned during training. RAG breaks that limitation by adding a **dynamic retrieval step** — the AI can now reference any document you give it, updated at any time, without retraining.
+
 ```
+Standard LLM:    Question ──────────────────────────► LLM ──► Answer
+                                                     (uses only training knowledge)
 
-Example:
-
-```text
-Python is a programming language.
-Python is used for AI and Web Development.
+RAG:             Question ──► Search Documents ──► LLM ──► Answer
+                                                     (uses YOUR documents + training)
 ```
 
 ---
 
-## Step 2: Text Extraction
+## ❓ Why RAG Exists
 
-The text is extracted from the document.
+Large Language Models face three core limitations:
 
-```text
-Python is a programming language.
-Python is used for AI and Web Development.
+| Limitation | Problem | RAG Solution |
+|-----------|---------|-------------|
+| **Knowledge Cutoff** | Training data has a fixed date — anything after that is unknown | Upload fresh documents anytime |
+| **Hallucination** | LLMs sometimes confidently make up incorrect facts | Answers are grounded in real retrieved text |
+| **No Private Data Access** | LLMs cannot access your internal files, databases, or PDFs | RAG lets you plug in private documents |
+
+RAG was introduced in a 2020 paper by Meta AI researchers and has since become the **most widely used pattern** for building production AI applications on top of LLMs.
+
+---
+
+## 💡 Real-Life Analogy
+
+Think of RAG like a **student taking an open-book exam**:
+
+```
+Without RAG (Closed-book exam):
+  The student answers from memory only.
+  Risk of wrong answers, gaps in knowledge.
+
+With RAG (Open-book exam):
+  The student searches the textbook for the relevant section,
+  reads it, then writes the answer.
+  More accurate. Grounded in real content.
+```
+
+Or even simpler:
+
+```
+   Google Search        +        ChatGPT
+  (finds information)     (explains information)
+             ↓
+            RAG
+     (finds AND explains)
 ```
 
 ---
 
-## Step 3: Chunking
+## 📋 Real-Life Example
 
-Large documents are split into smaller pieces called **chunks**.
+Imagine you upload a PDF containing your company policy:
 
-### Before Chunking
-
-```text
-Python is a programming language.
-Python is used for AI.
-Python is used for Web Development.
-Python supports Machine Learning.
+```
+┌─────────────────────────────────────────┐
+│         Company Leave Policy            │
+│                                         │
+│  Employees are entitled to 20 paid      │
+│  leave days per year.                   │
+│  Unused leave cannot be carried         │
+│  forward to the next year.              │
+└─────────────────────────────────────────┘
 ```
 
-### After Chunking
+A user asks:
 
-```text
-Chunk 1:
-Python is a programming language.
-
-Chunk 2:
-Python is used for AI.
-
-Chunk 3:
-Python is used for Web Development.
-
-Chunk 4:
-Python supports Machine Learning.
+```
+❓ How many paid leave days does an employee get?
 ```
 
-### Chunking Diagram
+**Without RAG:**
 
-```text
-Large Document
-      │
-      ▼
-+------------------+
-| Entire Document  |
-+------------------+
-      │
-      ▼
-+----------+
-| Chunk 1  |
-+----------+
+```
+The AI guesses based on general knowledge:
+"Typically companies offer 10–15 days..."   ← WRONG / HALLUCINATED
+```
 
-+----------+
-| Chunk 2  |
-+----------+
+**With RAG:**
 
-+----------+
-| Chunk 3  |
-+----------+
+```
+1. System searches the uploaded PDF
+2. Finds: "Employees are entitled to 20 paid leave days per year."
+3. AI responds:
+
+"According to the company policy, employees are entitled
+ to 20 paid leave days per year."              ← ACCURATE ✅
 ```
 
 ---
 
-## Step 4: Create Embeddings
+## 🔄 How RAG Works — Step by Step
 
-Embeddings convert text into numbers that capture meaning.
+RAG has two distinct phases:
 
-Example:
-
-```text
-Chunk:
-"Python is used for AI"
-
-Embedding:
-
-[0.23, 0.81, 0.45, 0.19, ...]
 ```
-
-### Diagram
-
-```text
-Text Chunk
-     │
-     ▼
-Embedding Model
-     │
-     ▼
-Vector Numbers
+┌─────────────────────────────────────────────────────────────────────┐
+│  PHASE 1: INDEXING (done once when documents are uploaded)          │
+│  Upload → Extract → Chunk → Embed → Store in Vector DB              │
+├─────────────────────────────────────────────────────────────────────┤
+│  PHASE 2: QUERYING (done every time a user asks a question)         │
+│  Question → Embed → Search → Retrieve Chunks → LLM → Answer        │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Step 5: Store in Vector Database
+### Step 1: Upload Documents
 
-The embeddings are stored inside a vector database.
+Users upload documents in various formats:
+
+```
+Supported Formats:
+┌──────────┬──────────┬──────────┬──────────┬──────────┐
+│   PDF    │   DOCX   │   TXT    │   CSV    │   HTML   │
+└──────────┴──────────┴──────────┴──────────┴──────────┘
 
 Examples:
-
-* FAISS
-* ChromaDB
-* Pinecone
-* Weaviate
-
-Diagram:
-
-```text
-Chunk 1 ──► Vector DB
-Chunk 2 ──► Vector DB
-Chunk 3 ──► Vector DB
-Chunk 4 ──► Vector DB
+  - Company policy manuals
+  - Product documentation
+  - Research papers
+  - Customer support FAQs
+  - Legal contracts
+  - Medical records
 ```
 
 ---
 
-## Step 6: User Asks a Question
+### Step 2: Text Extraction
 
+Raw text is extracted from the uploaded file using format-specific parsers.
+
+```
+┌──────────────────────────────────────────────────────┐
+│               Text Extraction                        │
+├───────────────────┬──────────────────────────────────┤
+│  Input File       │  Parser Used                     │
+├───────────────────┼──────────────────────────────────┤
+│  PDF              │  PyPDF2, pdfminer, PyMuPDF        │
+│  DOCX             │  python-docx                     │
+│  TXT              │  Direct read                     │
+│  CSV              │  pandas                          │
+│  HTML             │  BeautifulSoup                   │
+└───────────────────┴──────────────────────────────────┘
+
+Output (raw extracted text):
+──────────────────────────────
+Python is a programming language.
+Python is used for AI and Web Development.
+Python supports Machine Learning.
+```
+
+---
+
+### Step 3: Chunking
+
+Large documents are split into smaller, manageable pieces called **chunks**. This is critical because:
+
+- LLMs have a limited context window
+- Smaller chunks make similarity search more precise
+- Only the most relevant chunks are sent to the LLM
+
+**Before Chunking:**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                      FULL DOCUMENT                            │
+│  Python is a programming language.                            │
+│  Python is used for AI.                                       │
+│  Python is used for Web Development.                          │
+│  Python supports Machine Learning.                            │
+│  Python has a large open-source community.                    │
+│  ... (thousands more lines)                                   │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**After Chunking:**
+
+```
+┌─────────────────────┐  ┌─────────────────────┐
+│       Chunk 1       │  │       Chunk 2       │
+│─────────────────────│  │─────────────────────│
+│ Python is a         │  │ Python is used for  │
+│ programming         │  │ AI and Web          │
+│ language.           │  │ Development.        │
+└─────────────────────┘  └─────────────────────┘
+
+┌─────────────────────┐  ┌─────────────────────┐
+│       Chunk 3       │  │       Chunk 4       │
+│─────────────────────│  │─────────────────────│
+│ Python supports     │  │ Python has a large  │
+│ Machine Learning.   │  │ open-source         │
+│                     │  │ community.          │
+└─────────────────────┘  └─────────────────────┘
+```
+
+**Chunking Flowchart:**
+
+```
+  Full Document
+       │
+       ▼
+  ┌────────────────────────────────────────┐
+  │  Chunking Strategy?                    │
+  └────────┬──────────────┬───────────────┘
+           │              │               │
+           ▼              ▼               ▼
+    Fixed-size       Sentence-based   Semantic
+    (e.g. 512        (split at        (split by
+    tokens)          full stops)      topic/meaning)
+           │              │               │
+           └──────────────┴───────────────┘
+                          │
+                          ▼
+                   Individual Chunks
+                   (stored separately)
+```
+
+**Common Chunk Settings:**
+
+| Parameter | Typical Value | Description |
+|-----------|-------------|-------------|
+| `chunk_size` | 512 tokens | Max tokens per chunk |
+| `chunk_overlap` | 50–100 tokens | Overlap between adjacent chunks to preserve context |
+| `separator` | `\n\n` or `.` | Where to split |
+
+---
+
+### Step 4: Create Embeddings
+
+An **embedding** converts text into a list of numbers (a vector) that captures its **semantic meaning**.
+
+```
+Text Input:
+  "Python is used for AI"
+
+         │
+         ▼
+  ┌──────────────────┐
+  │  Embedding Model │  (e.g. all-MiniLM-L6-v2)
+  └──────────────────┘
+         │
+         ▼
+
+Vector Output:
+  [0.23, 0.81, 0.45, 0.19, 0.67, 0.12, ...]
+   ▲─── 384 or 1536 floating-point numbers ───▲
+```
+
+Key insight: **Similar meaning = similar numbers**
+
+```
+"Python is used for AI"     →  [0.23, 0.81, 0.45, ...]
+"AI applications use Python" →  [0.25, 0.79, 0.43, ...]  ← Very close!
+
+"The sky is blue"            →  [0.91, 0.12, 0.88, ...]  ← Very different
+```
+
+This is what makes semantic search possible — the system finds meaning, not just keywords.
+
+---
+
+### Step 5: Store in Vector Database
+
+All chunk embeddings are stored in a **vector database**, which is specially designed for fast similarity searches.
+
+```
+  Chunk 1 → [0.23, 0.81, 0.45...] ──►┐
+  Chunk 2 → [0.51, 0.32, 0.78...] ──►│
+  Chunk 3 → [0.11, 0.67, 0.23...] ──►│  Vector Database
+  Chunk 4 → [0.88, 0.14, 0.56...] ──►│  (FAISS / ChromaDB /
+  Chunk 5 → [0.34, 0.90, 0.12...] ──►┘   Pinecone / Weaviate)
+```
+
+Each entry in the vector database stores:
+
+```json
+{
+  "id": "chunk_003",
+  "vector": [0.11, 0.67, 0.23, ...],
+  "text": "Python is used for Web Development.",
+  "metadata": {
+    "source": "python_guide.pdf",
+    "page": 2,
+    "chunk_index": 3
+  }
+}
+```
+
+---
+
+### Step 6: User Asks a Question
+
+```
+User types:
+─────────────────────────────────────────
+  ❓ Where is Python used?
+─────────────────────────────────────────
+```
+
+This triggers the **Query Phase** of RAG.
+
+---
+
+### Step 7: Convert Question to Embedding
+
+The user's question is converted into a vector using the **same embedding model** used during indexing.
+
+```
 Question:
+  "Where is Python used?"
 
-```text
-Where is Python used?
+         │
+         ▼
+  ┌──────────────────┐
+  │  Embedding Model │  (same model as Step 4!)
+  └──────────────────┘
+         │
+         ▼
+
+Question Vector:
+  [0.25, 0.78, 0.41, 0.22, ...]
+```
+
+> ⚠️ **Important:** The indexing and querying steps MUST use the same embedding model. Mixing models will produce incompatible vectors and broken results.
+
+---
+
+### Step 8: Similarity Search
+
+The question vector is compared against all stored chunk vectors. The closest matches (by cosine similarity or dot product) are returned.
+
+```
+  Question Vector: [0.25, 0.78, 0.41, 0.22, ...]
+
+  Compare against:
+  ┌───────────┬──────────────────────────────┬────────────────┐
+  │  Chunk    │  Vector                      │  Similarity    │
+  ├───────────┼──────────────────────────────┼────────────────┤
+  │  Chunk 1  │  [0.23, 0.81, 0.45, 0.19...] │  0.97  ✅ TOP  │
+  │  Chunk 2  │  [0.51, 0.32, 0.78, 0.44...] │  0.61          │
+  │  Chunk 3  │  [0.11, 0.67, 0.23, 0.88...] │  0.95  ✅ TOP  │
+  │  Chunk 4  │  [0.88, 0.14, 0.56, 0.31...] │  0.34          │
+  └───────────┴──────────────────────────────┴────────────────┘
+
+  Top-K Retrieved Chunks (K=2):
+  ─────────────────────────────────────────
+  Chunk 1: "Python is used for AI."
+  Chunk 3: "Python is used for Web Development."
+  ─────────────────────────────────────────
+```
+
+**Similarity Search Flowchart:**
+
+```
+  User Question
+       │
+       ▼
+  Question Embedding
+       │
+       ▼
+  ┌─────────────────────────────┐
+  │      Vector Database        │
+  │  Cosine Similarity Search   │
+  │  across all stored chunks   │
+  └─────────────────────────────┘
+       │
+       ▼
+  Top-K Most Relevant Chunks
+  (typically K = 3 to 5)
 ```
 
 ---
 
-## Step 7: Convert Question into Embedding
+### Step 9: Send Context to LLM
 
-Question:
+The retrieved chunks are assembled into a **prompt** and sent to the LLM along with the original question.
 
-```text
-Where is Python used?
 ```
+Prompt Template:
+═══════════════════════════════════════════════════════
+You are a helpful assistant. Answer the user's question
+using ONLY the context provided below.
 
-Embedding:
-
-```text
-[0.25, 0.78, 0.41, 0.22, ...]
-```
-
----
-
-## Step 8: Similarity Search
-
-The vector database compares:
-
-```text
-Question Vector
-```
-
-with
-
-```text
-Chunk Vectors
-```
-
-and retrieves the most relevant chunks.
-
-Example:
-
-```text
-Retrieved Chunk:
-
+CONTEXT:
+────────────────────────────────────────────────────────
 Python is used for AI.
 Python is used for Web Development.
-```
+────────────────────────────────────────────────────────
 
-Diagram:
-
-```text
-Question
-    │
-    ▼
-Question Embedding
-    │
-    ▼
-Vector Database
-    │
-    ▼
-Most Similar Chunks
-```
-
----
-
-## Step 9: Send Context to LLM
-
-Prompt sent to AI:
-
-```text
-Context:
-Python is used for AI.
-Python is used for Web Development.
-
-Question:
+QUESTION:
 Where is Python used?
+
+ANSWER:
+═══════════════════════════════════════════════════════
 ```
 
 ---
 
-## Step 10: Generate Final Answer
+### Step 10: Generate Final Answer
 
-AI Response:
+The LLM reads the context and generates a grounded, accurate answer:
 
-```text
-Python is commonly used in Artificial Intelligence and Web Development.
+```
+✅ AI Response:
+
+"Python is commonly used in two major fields:
+
+1. Artificial Intelligence — including machine learning,
+   deep learning, and data science.
+
+2. Web Development — for building backend services and
+   web applications using frameworks like Django and Flask."
+```
+
+Because the answer is based on retrieved text rather than the model's memory alone, it is:
+
+- More accurate
+- Traceable to a source
+- Up-to-date with your latest documents
+
+---
+
+## 🏗️ Complete Architecture Diagram
+
+```
+  ╔═══════════════════════════════════════════════════════════════╗
+  ║                    INDEXING PIPELINE                         ║
+  ╠═══════════════════════════════════════════════════════════════╣
+  ║                                                               ║
+  ║   ┌─────────────┐                                            ║
+  ║   │  Documents  │  PDF, DOCX, TXT, CSV, HTML                 ║
+  ║   └──────┬──────┘                                            ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │ Text Extraction │  PyPDF2 / python-docx / etc.           ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │    Chunking     │  Split into 512-token pieces           ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │   Embeddings    │  all-MiniLM / BGE / OpenAI             ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │   Vector DB     │  FAISS / ChromaDB / Pinecone           ║
+  ║   └─────────────────┘                                        ║
+  ║                                                               ║
+  ╠═══════════════════════════════════════════════════════════════╣
+  ║                    QUERYING PIPELINE                         ║
+  ╠═══════════════════════════════════════════════════════════════╣
+  ║                                                               ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │  User Question  │  "Where is Python used?"               ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │Question Embed.  │  Same embedding model as above         ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │Similarity Search│  Top-K cosine similarity               ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │Relevant Chunks  │  Best matching text segments           ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │  Prompt Builder │  Context + Question → Prompt           ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │      LLM        │  Llama 3 / GPT / Mistral / Gemma       ║
+  ║   └──────┬──────────┘                                        ║
+  ║          │                                                    ║
+  ║          ▼                                                    ║
+  ║   ┌─────────────────┐                                        ║
+  ║   │  Final Answer   │  ✅ Grounded, accurate response        ║
+  ║   └─────────────────┘                                        ║
+  ║                                                               ║
+  ╚═══════════════════════════════════════════════════════════════╝
 ```
 
 ---
 
-# Complete RAG Architecture Diagram
+## 🧪 Tiny End-to-End Example
 
-```text
-                 +----------------+
-                 |   Documents    |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 | Text Extraction|
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 |   Chunking     |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 |  Embeddings    |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 |  Vector DB     |
-                 +----------------+
-                         ▲
-                         │
-                 +----------------+
-                 | User Question  |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 | Question Embed |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 | Similarity     |
-                 | Search         |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 | Relevant Chunk |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 |      LLM       |
-                 +----------------+
-                         │
-                         ▼
-                 +----------------+
-                 | Final Answer   |
-                 +----------------+
+### Document
+
 ```
-
----
-
-# Tiny End-to-End Example
-
-## Document
-
-```text
 The capital of France is Paris.
 The capital of Germany is Berlin.
 The capital of Italy is Rome.
 ```
 
-### Chunks
+### After Chunking & Embedding
 
-```text
-Chunk 1:
-The capital of France is Paris.
-
-Chunk 2:
-The capital of Germany is Berlin.
-
-Chunk 3:
-The capital of Italy is Rome.
+```
+┌──────────┬────────────────────────────────┬───────────────────────┐
+│ Chunk ID │ Text                           │ Vector (simplified)   │
+├──────────┼────────────────────────────────┼───────────────────────┤
+│ c_001    │ The capital of France is Paris.│ [0.82, 0.11, 0.44...] │
+│ c_002    │ The capital of Germany is      │ [0.79, 0.14, 0.51...] │
+│          │ Berlin.                        │                       │
+│ c_003    │ The capital of Italy is Rome.  │ [0.81, 0.10, 0.47...] │
+└──────────┴────────────────────────────────┴───────────────────────┘
 ```
 
-### User Question
+### Query
 
-```text
-What is the capital of Germany?
+```
+❓ Question:          "What is the capital of Germany?"
+   Question Vector:   [0.78, 0.15, 0.52...]
+
+   Similarity Scores:
+     c_001 (France/Paris)   → 0.71
+     c_002 (Germany/Berlin) → 0.99  ✅ Retrieved!
+     c_003 (Italy/Rome)     → 0.74
 ```
 
-### Retrieved Chunk
+### Final Prompt & Answer
 
-```text
-The capital of Germany is Berlin.
 ```
+Context: "The capital of Germany is Berlin."
+Question: "What is the capital of Germany?"
 
-### Final Answer
-
-```text
-Berlin is the capital of Germany.
+✅ Answer: "Berlin is the capital of Germany."
 ```
 
 ---
 
-# Why RAG is Powerful
+## ⚖️ RAG vs No RAG
 
-| Without RAG                 | With RAG                      |
-| --------------------------- | ----------------------------- |
-| Uses only training data     | Uses your documents           |
-| Can hallucinate             | More accurate                 |
-| Cannot access private files | Can answer from private files |
-| Knowledge may be outdated   | Uses latest uploaded data     |
-
----
-
-# Popular RAG Stack
-
-## Frontend
-
-* React
-* Next.js
-
-## Backend
-
-* Python
-* FastAPI
-* Flask
-
-## Embeddings
-
-* BAAI/bge-small-en
-* all-MiniLM-L6-v2
-* OpenAI Embeddings
-
-## Vector Database
-
-* FAISS
-* ChromaDB
-* Pinecone
-
-## LLM
-
-* Llama 3
-* Mistral
-* Gemma
-* GPT Models
+| Scenario | Without RAG | With RAG |
+|---------|------------|---------|
+| **Knowledge source** | Training data only (fixed date) | Your uploaded documents (always fresh) |
+| **Private company data** | ❌ Cannot access | ✅ Fully accessible |
+| **Accuracy on specific facts** | Risk of hallucination | Grounded in real text |
+| **Knowledge cutoff** | Hard cutoff (e.g. 2024) | No cutoff — upload new docs anytime |
+| **Source traceability** | ❌ Cannot cite sources | ✅ Can cite exact document & page |
+| **Custom domains** | Generic knowledge only | Domain-specific (legal, medical, HR, etc.) |
+| **Cost** | One inference call | Slightly higher (retrieval + inference) |
 
 ---
 
-# Summary
+## 🛠️ Popular RAG Stack
+
+### Frontend
+
+```
+React.js / Next.js
+  - Chat interface
+  - Document upload UI
+  - Source citation display
+```
+
+### Backend
+
+```
+Python (FastAPI or Flask)
+  - Document ingestion pipeline
+  - Query handling API
+  - Embedding orchestration
+```
+
+### Embedding Models
+
+| Model | Dimensions | Best For |
+|-------|-----------|---------|
+| `all-MiniLM-L6-v2` | 384 | Fast, general purpose |
+| `BAAI/bge-small-en` | 384 | High accuracy, open source |
+| `text-embedding-3-small` | 1536 | OpenAI, high quality |
+| `text-embedding-3-large` | 3072 | OpenAI, best quality |
+
+### Vector Databases
+
+| Database | Type | Best For |
+|----------|------|---------|
+| **FAISS** | In-memory (Meta) | Local / prototyping |
+| **ChromaDB** | Embedded / server | Small–medium apps |
+| **Pinecone** | Managed cloud | Production scale |
+| **Weaviate** | Self-hosted / cloud | Enterprise, hybrid search |
+| **Qdrant** | Rust-based, fast | High-performance production |
+
+### LLM Options
+
+| Model | Provider | Notes |
+|-------|----------|-------|
+| `Llama 3` | Meta (open source) | Self-hostable |
+| `Mistral 7B` | Mistral AI | Lightweight, fast |
+| `Gemma 2` | Google (open source) | Efficient |
+| `GPT-4o` | OpenAI | Highest quality, paid |
+| `Claude 3.5` | Anthropic | Strong reasoning |
+
+### Full Stack Example
+
+```
+Next.js (UI)
+    │
+    ▼
+FastAPI (Backend)
+    │
+    ├──► LangChain / LlamaIndex  (RAG orchestration)
+    │
+    ├──► HuggingFace Embeddings  (all-MiniLM-L6-v2)
+    │
+    ├──► ChromaDB                (vector storage)
+    │
+    └──► Ollama + Llama 3        (local LLM inference)
+```
+
+---
+
+## 📐 Chunking Strategies
+
+Different chunking strategies suit different document types:
+
+```
+┌────────────────────────┬─────────────────────────┬──────────────────────┐
+│  Strategy              │  How It Works            │  Best For            │
+├────────────────────────┼─────────────────────────┼──────────────────────┤
+│  Fixed-size            │  Split every N tokens    │  General purpose     │
+│  (most common)         │  with overlap            │  plain text          │
+├────────────────────────┼─────────────────────────┼──────────────────────┤
+│  Sentence-based        │  Split at sentence       │  Articles, reports   │
+│                        │  boundaries (.)          │  prose documents     │
+├────────────────────────┼─────────────────────────┼──────────────────────┤
+│  Recursive character   │  Try paragraph →         │  Mixed-format docs   │
+│                        │  sentence → word         │  (LangChain default) │
+├────────────────────────┼─────────────────────────┼──────────────────────┤
+│  Semantic              │  Group by topic meaning  │  Complex, dense docs │
+│                        │  using embeddings        │                      │
+├────────────────────────┼─────────────────────────┼──────────────────────┤
+│  Document-specific     │  By headers / sections   │  Markdown, HTML,     │
+│  (structural)          │  (H1, H2, H3 etc.)       │  structured manuals  │
+└────────────────────────┴─────────────────────────┴──────────────────────┘
+```
+
+**Overlap explained:**
+
+```
+Chunk size = 100 tokens, Overlap = 20 tokens
+
+  Chunk 1:  [Token 1  ──────────────────── Token 100]
+  Chunk 2:            [Token 81 ──────────────────────── Token 180]
+                       ▲──── 20 token overlap ────▲
+  Chunk 3:                          [Token 161 ─────────── Token 260]
+
+Overlap ensures context is not lost at chunk boundaries.
+```
+
+---
+
+## 🧬 Embedding Models
+
+Embeddings are the heart of RAG. They convert text to meaning-preserving vectors.
+
+```
+How similarity works in vector space:
+
+  "machine learning" ●
+                      \
+                       \  close distance = similar meaning
+                        \
+  "deep learning"    ●──┘
+
+                                            ● "cooking recipes"
+                                              (far away = different meaning)
+```
+
+**Choosing the right embedding model:**
+
+```
+Small project / prototype:
+  → all-MiniLM-L6-v2  (free, fast, good quality)
+
+Production accuracy needed:
+  → BAAI/bge-large-en-v1.5  (open source, high accuracy)
+
+Using OpenAI already:
+  → text-embedding-3-small  (cheap, 1536-dim)
+
+Multilingual documents:
+  → multilingual-e5-large  (supports 100+ languages)
+```
+
+---
+
+## 🔬 Advanced RAG Techniques
+
+Beyond basic RAG, several advanced techniques improve accuracy:
+
+### 1. Hybrid Search
+
+```
+  Question
+     │
+     ├──► Semantic Search (vector similarity)  ─┐
+     │                                           ├──► Merge Results ──► LLM
+     └──► Keyword Search (BM25/TF-IDF)        ─┘
+
+Combines meaning-based AND keyword-based search for better recall.
+```
+
+### 2. Re-ranking
+
+```
+  Top-20 chunks from vector search
+              │
+              ▼
+     Re-ranking Model
+     (cross-encoder)
+              │
+              ▼
+  Top-3 most relevant chunks  ──► LLM
+```
+
+After initial retrieval, a second, more precise model re-ranks the candidates to send only the best chunks to the LLM.
+
+### 3. Query Rewriting
+
+```
+  User: "what did we decide last sprint about auth?"
+              │
+              ▼
+     Query Rewriter (LLM)
+              │
+              ▼
+  Rewritten: "authentication decisions sprint planning meeting"
+              │
+              ▼
+     Better retrieval results
+```
+
+### 4. Parent-Child Chunking
+
+```
+  Store small chunks for precise search.
+  But retrieve parent (larger context) for answering.
+
+  Parent:  Full section (512 tokens) ──► sent to LLM
+  Child:   Sentence (64 tokens)      ──► used for matching
+```
+
+---
+
+## ✅ Summary
 
 RAG (Retrieval-Augmented Generation) works in three simple stages:
 
-```text
-Documents
-     ↓
-Retrieve Relevant Information
-     ↓
-Generate Accurate Answer
+```
+  ┌──────────────────────────────────────────────────────────┐
+  │                                                          │
+  │   1. STORE         Upload & index your documents         │
+  │      ────────────────────────────────────────────────    │
+  │      Documents → Extract → Chunk → Embed → Vector DB     │
+  │                                                          │
+  │   2. RETRIEVE      Find relevant information             │
+  │      ────────────────────────────────────────────────    │
+  │      Question → Embed → Similarity Search → Top Chunks   │
+  │                                                          │
+  │   3. GENERATE      Produce an accurate answer            │
+  │      ────────────────────────────────────────────────    │
+  │      Chunks + Question → LLM Prompt → Final Answer       │
+  │                                                          │
+  └──────────────────────────────────────────────────────────┘
 ```
 
-Think of RAG as:
+**RAG is the bridge between your private knowledge and AI intelligence.**
 
-```text
-Google Search
-      +
-ChatGPT
-      =
-RAG
-```
+It turns any LLM into a domain expert on your own data — without retraining, without hallucination, and without a knowledge cutoff.
 
-The system first finds the correct information and then lets the AI answer using that information.
+---
+
+## 📎 Quick Reference
+
+| Term | Definition |
+|------|-----------|
+| **Embedding** | Numerical vector representation of text meaning |
+| **Vector DB** | Database optimized for similarity search over vectors |
+| **Chunk** | A small segment of a document, typically 256–512 tokens |
+| **Cosine Similarity** | Metric to measure how close two vectors are (0–1 scale) |
+| **Top-K** | Retrieve the K most similar chunks (typically 3–5) |
+| **Context Window** | Maximum tokens an LLM can process at once |
+| **Hallucination** | When an LLM confidently states something false |
+| **Grounding** | Anchoring AI answers in real retrieved source text |
+| **LlamaIndex** | Python framework for building RAG pipelines |
+| **LangChain** | Python framework for chaining LLM + retrieval workflows |
+
+---
+
+*© 2026 — RAG System Documentation. For internal use and developer reference.*
