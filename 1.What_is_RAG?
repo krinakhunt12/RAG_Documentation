@@ -1,0 +1,450 @@
+# What is RAG (Retrieval-Augmented Generation)?
+
+## Introduction
+
+**RAG (Retrieval-Augmented Generation)** is a technique that helps AI answer questions using information from your own documents.
+
+Instead of relying only on what the AI learned during training, RAG allows the AI to:
+
+1. Search relevant information from documents.
+2. Use that information to generate accurate answers.
+
+---
+
+# Simple Real-Life Example
+
+Imagine you upload a PDF containing:
+
+```text
+Company Leave Policy
+
+Employees are entitled to 20 paid leave days per year.
+Unused leave cannot be carried forward.
+```
+
+Then a user asks:
+
+```text
+How many paid leave days does an employee get?
+```
+
+Without RAG:
+
+```text
+The AI may guess or provide a generic answer.
+```
+
+With RAG:
+
+```text
+The system searches the document,
+finds the relevant sentence,
+and answers:
+
+"Employees are entitled to 20 paid leave days per year."
+```
+
+---
+
+# How RAG Works
+
+## Step 1: Upload Documents
+
+```text
+PDF
+DOCX
+TXT
+CSV
+```
+
+Example:
+
+```text
+Python is a programming language.
+Python is used for AI and Web Development.
+```
+
+---
+
+## Step 2: Text Extraction
+
+The text is extracted from the document.
+
+```text
+Python is a programming language.
+Python is used for AI and Web Development.
+```
+
+---
+
+## Step 3: Chunking
+
+Large documents are split into smaller pieces called **chunks**.
+
+### Before Chunking
+
+```text
+Python is a programming language.
+Python is used for AI.
+Python is used for Web Development.
+Python supports Machine Learning.
+```
+
+### After Chunking
+
+```text
+Chunk 1:
+Python is a programming language.
+
+Chunk 2:
+Python is used for AI.
+
+Chunk 3:
+Python is used for Web Development.
+
+Chunk 4:
+Python supports Machine Learning.
+```
+
+### Chunking Diagram
+
+```text
+Large Document
+      │
+      ▼
++------------------+
+| Entire Document  |
++------------------+
+      │
+      ▼
++----------+
+| Chunk 1  |
++----------+
+
++----------+
+| Chunk 2  |
++----------+
+
++----------+
+| Chunk 3  |
++----------+
+```
+
+---
+
+## Step 4: Create Embeddings
+
+Embeddings convert text into numbers that capture meaning.
+
+Example:
+
+```text
+Chunk:
+"Python is used for AI"
+
+Embedding:
+
+[0.23, 0.81, 0.45, 0.19, ...]
+```
+
+### Diagram
+
+```text
+Text Chunk
+     │
+     ▼
+Embedding Model
+     │
+     ▼
+Vector Numbers
+```
+
+---
+
+## Step 5: Store in Vector Database
+
+The embeddings are stored inside a vector database.
+
+Examples:
+
+* FAISS
+* ChromaDB
+* Pinecone
+* Weaviate
+
+Diagram:
+
+```text
+Chunk 1 ──► Vector DB
+Chunk 2 ──► Vector DB
+Chunk 3 ──► Vector DB
+Chunk 4 ──► Vector DB
+```
+
+---
+
+## Step 6: User Asks a Question
+
+Question:
+
+```text
+Where is Python used?
+```
+
+---
+
+## Step 7: Convert Question into Embedding
+
+Question:
+
+```text
+Where is Python used?
+```
+
+Embedding:
+
+```text
+[0.25, 0.78, 0.41, 0.22, ...]
+```
+
+---
+
+## Step 8: Similarity Search
+
+The vector database compares:
+
+```text
+Question Vector
+```
+
+with
+
+```text
+Chunk Vectors
+```
+
+and retrieves the most relevant chunks.
+
+Example:
+
+```text
+Retrieved Chunk:
+
+Python is used for AI.
+Python is used for Web Development.
+```
+
+Diagram:
+
+```text
+Question
+    │
+    ▼
+Question Embedding
+    │
+    ▼
+Vector Database
+    │
+    ▼
+Most Similar Chunks
+```
+
+---
+
+## Step 9: Send Context to LLM
+
+Prompt sent to AI:
+
+```text
+Context:
+Python is used for AI.
+Python is used for Web Development.
+
+Question:
+Where is Python used?
+```
+
+---
+
+## Step 10: Generate Final Answer
+
+AI Response:
+
+```text
+Python is commonly used in Artificial Intelligence and Web Development.
+```
+
+---
+
+# Complete RAG Architecture Diagram
+
+```text
+                 +----------------+
+                 |   Documents    |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 | Text Extraction|
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 |   Chunking     |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 |  Embeddings    |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 |  Vector DB     |
+                 +----------------+
+                         ▲
+                         │
+                 +----------------+
+                 | User Question  |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 | Question Embed |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 | Similarity     |
+                 | Search         |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 | Relevant Chunk |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 |      LLM       |
+                 +----------------+
+                         │
+                         ▼
+                 +----------------+
+                 | Final Answer   |
+                 +----------------+
+```
+
+---
+
+# Tiny End-to-End Example
+
+## Document
+
+```text
+The capital of France is Paris.
+The capital of Germany is Berlin.
+The capital of Italy is Rome.
+```
+
+### Chunks
+
+```text
+Chunk 1:
+The capital of France is Paris.
+
+Chunk 2:
+The capital of Germany is Berlin.
+
+Chunk 3:
+The capital of Italy is Rome.
+```
+
+### User Question
+
+```text
+What is the capital of Germany?
+```
+
+### Retrieved Chunk
+
+```text
+The capital of Germany is Berlin.
+```
+
+### Final Answer
+
+```text
+Berlin is the capital of Germany.
+```
+
+---
+
+# Why RAG is Powerful
+
+| Without RAG                 | With RAG                      |
+| --------------------------- | ----------------------------- |
+| Uses only training data     | Uses your documents           |
+| Can hallucinate             | More accurate                 |
+| Cannot access private files | Can answer from private files |
+| Knowledge may be outdated   | Uses latest uploaded data     |
+
+---
+
+# Popular RAG Stack
+
+## Frontend
+
+* React
+* Next.js
+
+## Backend
+
+* Python
+* FastAPI
+* Flask
+
+## Embeddings
+
+* BAAI/bge-small-en
+* all-MiniLM-L6-v2
+* OpenAI Embeddings
+
+## Vector Database
+
+* FAISS
+* ChromaDB
+* Pinecone
+
+## LLM
+
+* Llama 3
+* Mistral
+* Gemma
+* GPT Models
+
+---
+
+# Summary
+
+RAG (Retrieval-Augmented Generation) works in three simple stages:
+
+```text
+Documents
+     ↓
+Retrieve Relevant Information
+     ↓
+Generate Accurate Answer
+```
+
+Think of RAG as:
+
+```text
+Google Search
+      +
+ChatGPT
+      =
+RAG
+```
+
+The system first finds the correct information and then lets the AI answer using that information.
